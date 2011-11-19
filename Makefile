@@ -1,10 +1,10 @@
-CFLAGS = -std=c99 -Wall -I/usr/include/subversion-1
-LDFLAGS = -lspotify -levent -levent_pthreads -ljansson -lsvn_diff-1 -lsvn_subr-1
+CFLAGS = -std=c99 -Wall
+LDFLAGS = -lspotify -levent -levent_pthreads -ljansson
 SOURCES = appkey.c account.c diff.c json.c server.c
 
-override CFLAGS += $(shell apr-1-config --cflags --includes)
+override CFLAGS += $(shell --cflags --includes)
 
-override LDFLAGS += $(shell apr-1-config --link-ld --libs)
+override LDFLAGS += $(shell --link-ld --libs)
 
 all: $(SOURCES) server
 
