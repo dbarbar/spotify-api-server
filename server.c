@@ -13,9 +13,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */ 
+ */
 
-#include <apr.h>
 #include <assert.h>
 #include <event2/buffer.h>
 #include <event2/event.h>
@@ -32,20 +31,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <svn_diff.h>
 #include <sys/queue.h>
 #include <syslog.h>
 
 #include "constants.h"
-#include "diff.h"
 #include "json.h"
 
 #define HTTP_ERROR 500
 #define HTTP_NOTIMPL 501
 
 // Application key
-extern const unsigned char g_appkey[]; 
-extern const size_t g_appkey_size; 
+extern const unsigned char g_appkey[];
+extern const size_t g_appkey_size;
 
 // Account information
 extern const char username[];
@@ -70,7 +67,7 @@ struct state {
 
   struct evhttp *http;
 
-  apr_pool_t *pool;
+//  apr_pool_t *pool;
 };
 
 typedef void (*handle_playlist_fn)(sp_playlist *playlist,
@@ -490,7 +487,7 @@ static void put_playlist_add_tracks(sp_playlist *playlist,
   const sp_track **tracks = calloc(num_tracks, sizeof (sp_track *));
   int num_valid_tracks = json_to_tracks(json, tracks, num_tracks);
   json_decref(json);
-  
+
   // Bail if no tracks could be read from input
   if (num_valid_tracks == 0) {
     send_error(request, HTTP_BADREQUEST, "No valid tracks");
@@ -548,13 +545,13 @@ static void put_playlist_remove_tracks(sp_playlist *playlist,
 
   int *tracks = calloc(count, sizeof(int));
 
-  for (int i = 0; i < count; i++) 
-    tracks[i] = index + i; 
+  for (int i = 0; i < count; i++)
+    tracks[i] = index + i;
 
   struct playlist_handler *handler = register_playlist_callbacks(
       playlist, request, &get_playlist,
       &playlist_update_in_progress_callbacks, NULL);
-  sp_error remove_tracks_error = sp_playlist_remove_tracks(playlist, tracks, 
+  sp_error remove_tracks_error = sp_playlist_remove_tracks(playlist, tracks,
                                                            count);
 
   if (remove_tracks_error != SP_ERROR_OK) {
@@ -564,119 +561,6 @@ static void put_playlist_remove_tracks(sp_playlist *playlist,
   }
 
   free(tracks);
-}
-
-static void put_playlist_patch(sp_playlist *playlist,
-                               struct evhttp_request *request,
-                               void *userdata) {
-  struct state *state = userdata;
-  struct evbuffer *buf = evhttp_request_get_input_buffer(request);
-  size_t buflen = evbuffer_get_length(buf);
-
-  if (buflen == 0) {
-    send_error(request, HTTP_BADREQUEST, "No body");
-    return;
-  }
-
-  // Read request body
-  json_error_t loads_error;
-  json_t *json = read_request_body_json(request, &loads_error);
-
-  if (json == NULL) {
-    send_error(request, HTTP_BADREQUEST,
-               loads_error.text ? loads_error.text : "Unable to parse JSON");
-    return;
-  }
-
-  if (!json_is_array(json)) {
-    json_decref(json);
-    send_error(request, HTTP_BADREQUEST, "Not valid JSON array");
-    return;
-  }
-
-  // Handle empty array
-  int num_tracks = json_array_size(json);
-
-  if (num_tracks == 0) {
-    send_reply(request, HTTP_OK, "OK", NULL);
-    return;
-  }
-
-  const sp_track **tracks = calloc(num_tracks, sizeof (sp_track *));
-  int num_valid_tracks = 0;
-
-  for (int i = 0; i < num_tracks; i++) {
-    json_t *item = json_array_get(json, i);
-
-    if (!json_is_string(item)) {
-      json_decref(item);
-      continue;
-    }
-
-    char *uri = strdup(json_string_value(item));
-    sp_link *track_link = sp_link_create_from_string(uri);
-    free(uri);
-
-    if (track_link == NULL)
-      continue;
-
-    if (sp_link_type(track_link) != SP_LINKTYPE_TRACK) {
-      sp_link_release(track_link);
-      continue;
-    }
-
-    sp_track *track = sp_link_as_track(track_link);
-    
-    if (track == NULL)
-      continue;
-
-    tracks[num_valid_tracks++] = track;
-  }
-
-  json_decref(json);
-  
-  // Bail if no tracks could be read from input
-  if (num_valid_tracks == 0) {
-    send_error(request, HTTP_BADREQUEST, "No valid tracks");
-    free(tracks);
-    return;
-  }
-
-  tracks = realloc(tracks, num_valid_tracks * sizeof (sp_track *));
-
-  // Apply diff
-  apr_pool_t *pool = state->pool;
-  svn_diff_t *diff;
-  svn_error_t *diff_error = diff_playlist_tracks(&diff, playlist, tracks, 
-                                                 num_valid_tracks, pool); 
-
-  if (diff_error != SVN_NO_ERROR) {
-    free(tracks);
-    svn_handle_error2(diff_error, stderr, false, "Diff");
-    send_error(request, HTTP_BADREQUEST, "Search failed");
-    return;
-  }
-
-  svn_error_t *apply_error = diff_playlist_tracks_apply(diff, playlist, tracks,
-                                                        num_valid_tracks,
-                                                        state->session);
-
-  if (apply_error != SVN_NO_ERROR) {
-    free(tracks);
-    svn_handle_error2(apply_error, stderr, false, "Updating playlist");
-    send_error(request, HTTP_BADREQUEST, "Could not apply diff");
-    return;
-  }
-
-  if (!sp_playlist_has_pending_changes(playlist)) {
-    free(tracks);
-    get_playlist(playlist, request, NULL);
-    return;
-  }
-
-  free(tracks);
-  register_playlist_callbacks(playlist, request, &get_playlist,
-                              &playlist_update_in_progress_callbacks, NULL);
 }
 
 static void handle_user_request(struct evhttp_request *request,
@@ -878,7 +762,7 @@ static void handle_request(struct evhttp_request *request,
     register_playlist_callbacks(playlist, request, request_callback,
                                 &playlist_state_changed_callbacks,
                                 callback_userdata);
-  } 
+  }
 }
 
 static void playlistcontainer_loaded(sp_playlistcontainer *pc, void *userdata);
@@ -985,16 +869,6 @@ int main(int argc, char **argv) {
   state->async = event_new(state->event_base, -1, 0, &process_events, state);
   state->timer = evtimer_new(state->event_base, &process_events, state);
   state->sigint = evsignal_new(state->event_base, SIGINT, &sigint_handler, state);
-
-  // Initialize APR
-  apr_status_t rv = apr_initialize();
-
-  if (rv != APR_SUCCESS) {
-    syslog(LOG_CRIT, "Unable to initialize APR");
-    return EXIT_FAILURE;
-  }
-
-  apr_pool_create(&state->pool, NULL);
 
   // Initialize libspotify
   sp_session_callbacks session_callbacks = {
