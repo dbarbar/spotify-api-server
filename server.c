@@ -805,7 +805,7 @@ static void logged_out(sp_session *session) {
   event_del(state->timer);
   event_del(state->sigint);
   event_base_loopbreak(state->event_base);
-  apr_pool_destroy(state->pool);
+//  apr_pool_destroy(state->pool);
   closelog();
 }
 
