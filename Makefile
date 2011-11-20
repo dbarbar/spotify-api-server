@@ -1,6 +1,6 @@
 CFLAGS = -std=c99 -Wall
 LDFLAGS = -lspotify -levent -levent_pthreads -ljansson
-SOURCES = appkey.c account.c diff.c json.c server.c
+SOURCES = appkey.c account.c json.c server.c
 
 override CFLAGS += $(shell --cflags --includes)
 

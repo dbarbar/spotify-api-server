@@ -746,9 +746,6 @@ static void handle_request(struct evhttp_request *request,
         request_callback = &put_playlist_add_tracks;
       } else if (strncmp(action, "remove", 6) == 0) {
         request_callback = &put_playlist_remove_tracks;
-      } else if (strncmp(action, "patch", 5) == 0) {
-        callback_userdata = state;
-        request_callback = &put_playlist_patch;
       }
     }
     break;
